@@ -134,50 +134,56 @@ def encrypt_file_streaming(
 
     fd, temp_path = _create_temp_file(destination)
     try:
-        with source.open("rb") as input_file, os.fdopen(fd, "wb") as output_file:
-            output_file.write(header)
-            counter = 0
+        with os.fdopen(fd, "wb") as output_file:
+            fd = None
+            with source.open("rb") as input_file:
+                output_file.write(header)
+                counter = 0
 
-            while True:
-                plaintext = input_file.read(chunk_size)
-                if not plaintext:
-                    break
-                if counter >= NONCE_COUNTER_MAX:
-                    raise ValueError("El archivo supera el límite de bloques del formato.")
+                while True:
+                    plaintext = input_file.read(chunk_size)
+                    if not plaintext:
+                        break
+                    if counter >= NONCE_COUNTER_MAX:
+                        raise ValueError(
+                            "El archivo supera el límite de bloques del formato."
+                        )
 
-                record_header = struct.pack(
+                    record_header = struct.pack(
+                        RECORD_FORMAT,
+                        RECORD_DATA,
+                        counter,
+                        len(plaintext),
+                    )
+                    ciphertext = cipher.encrypt(
+                        _nonce(nonce_prefix, counter),
+                        plaintext,
+                        header + record_header,
+                    )
+                    output_file.write(record_header)
+                    output_file.write(ciphertext)
+                    counter += 1
+
+                final_header = struct.pack(
                     RECORD_FORMAT,
-                    RECORD_DATA,
+                    RECORD_FINAL,
                     counter,
-                    len(plaintext),
+                    0,
                 )
-                ciphertext = cipher.encrypt(
+                final_tag = cipher.encrypt(
                     _nonce(nonce_prefix, counter),
-                    plaintext,
-                    header + record_header,
+                    b"",
+                    header + final_header,
                 )
-                output_file.write(record_header)
-                output_file.write(ciphertext)
-                counter += 1
-
-            final_header = struct.pack(
-                RECORD_FORMAT,
-                RECORD_FINAL,
-                counter,
-                0,
-            )
-            final_tag = cipher.encrypt(
-                _nonce(nonce_prefix, counter),
-                b"",
-                header + final_header,
-            )
-            output_file.write(final_header)
-            output_file.write(final_tag)
-            output_file.flush()
-            os.fsync(output_file.fileno())
+                output_file.write(final_header)
+                output_file.write(final_tag)
+                output_file.flush()
+                os.fsync(output_file.fileno())
 
         _publish_without_overwrite(temp_path, destination)
     finally:
+        if fd is not None:
+            os.close(fd)
         try:
             temp_path.unlink(missing_ok=True)
         except OSError:
