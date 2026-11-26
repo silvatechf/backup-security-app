@@ -3,8 +3,7 @@ from pathlib import Path
 import pytest
 from cryptography.exceptions import InvalidTag
 
-from backup_crypto import decrypt_file, encrypt_file
-
+from backup_crypto import _write_new_file, decrypt_file, encrypt_file
 
 PASSWORD = "TCC-Seguridad-Backup-2026!"
 
@@ -74,3 +73,33 @@ def test_empty_file_roundtrip(tmp_path: Path):
     decrypt_file(encrypted, restored, PASSWORD)
 
     assert restored.read_bytes() == b""
+
+
+def test_encryption_rejects_short_password(tmp_path: Path):
+    original = tmp_path / "backup.zip"
+    encrypted = tmp_path / "backup.enc"
+    original.write_bytes(b"datos")
+
+    with pytest.raises(ValueError, match="al menos 12 caracteres"):
+        encrypt_file(original, encrypted, "short")
+
+    assert not encrypted.exists()
+
+
+def test_open_race_does_not_delete_another_process_file(tmp_path: Path, monkeypatch):
+    destination = tmp_path / "created-by-another-process.enc"
+    other_process_content = b"contenido ajeno"
+    real_open = Path.open
+
+    def simulate_exclusive_create_race(path: Path, mode: str = "r", *args, **kwargs):
+        if path == destination and mode == "xb":
+            destination.write_bytes(other_process_content)
+            raise FileExistsError("El archivo fue creado concurrentemente.")
+        return real_open(path, mode, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", simulate_exclusive_create_race)
+
+    with pytest.raises(FileExistsError):
+        _write_new_file(destination, b"contenido propio")
+
+    assert destination.read_bytes() == other_process_content

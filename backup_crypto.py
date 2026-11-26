@@ -22,6 +22,7 @@ SALT_SIZE = 16
 NONCE_SIZE = 12
 KEY_SIZE = 32  # 32 bytes = AES-256
 ITERATIONS = 600_000
+MIN_PASSWORD_LENGTH = 12
 HEADER_FORMAT = ">8sI16s12s"
 HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
 
@@ -49,21 +50,27 @@ def _validate_paths(source: Path, destination: Path) -> None:
         raise ValueError("El archivo de origen no existe o no es un archivo regular.")
     if source.resolve() == destination.resolve():
         raise ValueError("El origen y el destino deben ser diferentes.")
-    if destination.exists():
+    if destination.exists() or destination.is_symlink():
         raise FileExistsError(f"El destino ya existe: {destination}")
 
 
 def _write_new_file(destination: Path, content: bytes) -> None:
-    """Crea un archivo nuevo sin sobrescribir uno existente."""
+    """Crea un archivo nuevo sin sobrescribir ni borrar archivos ajenos."""
     destination.parent.mkdir(parents=True, exist_ok=True)
+    created_by_this_operation = False
+
     try:
-        with destination.open("xb") as output:
+        output = destination.open("xb")
+        created_by_this_operation = True
+        with output:
             output.write(content)
+            output.flush()
+            os.fsync(output.fileno())
     except Exception:
-        # Elimina únicamente el archivo parcial creado por esta operación.
-        if destination.exists():
+        # Solo se elimina un archivo cuya creación exclusiva tuvo éxito aquí.
+        if created_by_this_operation:
             try:
-                destination.unlink()
+                destination.unlink(missing_ok=True)
             except OSError:
                 pass
         raise
@@ -73,6 +80,10 @@ def encrypt_file(source: Path, destination: Path, password: str) -> None:
     """Cifra un archivo y conserva intacto el original."""
     source = Path(source)
     destination = Path(destination)
+    if len(password) < MIN_PASSWORD_LENGTH:
+        raise ValueError(
+            f"La contraseña debe tener al menos {MIN_PASSWORD_LENGTH} caracteres."
+        )
     _validate_paths(source, destination)
 
     salt = os.urandom(SALT_SIZE)
@@ -118,8 +129,6 @@ def _read_password(operation: str) -> str:
         confirmation = getpass.getpass("Confirme la contraseña: ")
         if password != confirmation:
             raise ValueError("Las contraseñas no coinciden.")
-        if len(password) < 12:
-            raise ValueError("Utilice una contraseña de al menos 12 caracteres.")
     elif not password:
         raise ValueError("La contraseña no puede estar vacía.")
     return password

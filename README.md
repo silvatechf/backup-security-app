@@ -23,6 +23,7 @@ La versión V1 trabaja sobre un archivo seleccionado explícitamente. No recorre
 | AES-256-GCM | Cifrado autenticado |
 | PBKDF2-HMAC-SHA256 | Derivación de clave |
 | `pytest` | Pruebas automatizadas |
+| Ruff | Análisis estático y estilo |
 
 ## 4. Arquitectura criptográfica
 
@@ -30,8 +31,8 @@ La versión V1 trabaja sobre un archivo seleccionado explícitamente. No recorre
 2. Se genera un nonce aleatorio de 12 bytes.
 3. PBKDF2-HMAC-SHA256 deriva una clave de 32 bytes (256 bits), con 600.000 iteraciones.
 4. AES-256-GCM cifra el contenido y genera una etiqueta de autenticación.
-5. La cabecera del formato se utiliza como AAD (Additional Authenticated Data), por lo que también queda autenticada.
-6. Durante la recuperación, AES-GCM valida la etiqueta antes de devolver el contenido descifrado.
+5. La cabecera se utiliza como AAD (Additional Authenticated Data), por lo que también queda autenticada.
+6. Durante la recuperación, AES-GCM valida la etiqueta antes de devolver los datos descifrados.
 
 Cada cifrado genera una sal y un nonce nuevos. No reutilizar manualmente valores criptográficos.
 
@@ -39,7 +40,7 @@ Cada cifrado genera una sal y un nonce nuevos. No reutilizar manualmente valores
 
 - Python 3.10 o superior.
 - Windows, Linux o macOS.
-- Dependencias instaladas desde `requirements.txt`.
+- Dependencias instaladas desde `requirements-dev.txt`.
 
 ## 6. Instalación en Windows (PowerShell)
 
@@ -70,7 +71,7 @@ No utilizar documentos sensibles reales durante las primeras pruebas.
 python backup_crypto.py encrypt .\backups\backup.zip .\encrypted\backup.zip.enc
 ```
 
-El programa solicita una contraseña y su confirmación. Se recomienda una contraseña larga, única y almacenada de forma segura.
+El programa solicita una contraseña y su confirmación. Se exige una longitud mínima de 12 caracteres; se recomienda una contraseña más larga, única y almacenada de forma segura.
 
 ### Descifrar
 
@@ -93,19 +94,24 @@ Los valores `Hash` deben coincidir.
 
 También se puede probar la autenticación modificando una copia del archivo cifrado. El descifrado debe fallar sin generar el archivo de salida.
 
-## 10. Pruebas automatizadas
+## 10. Pruebas automatizadas y análisis estático
 
 ```powershell
-pytest -v
+python -m pytest -v
+python -m ruff check .
 ```
 
-La suite comprueba:
+La suite incluye pruebas de:
 
 - Cifrado y recuperación correctos.
 - Rechazo de contraseña incorrecta.
 - Detección de manipulación del contenido cifrado.
 - Protección frente a sobrescritura del destino.
 - Tratamiento de archivos vacíos.
+- Rechazo de contraseñas demasiado cortas desde la API Python.
+- Protección frente a una condición de carrera al crear el destino.
+
+GitHub Actions ejecuta Ruff y pytest para Python 3.10, 3.11, 3.12 y 3.13.
 
 ## 11. Formato del archivo cifrado
 
