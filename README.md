@@ -85,19 +85,19 @@ Más detalles: [Security design and architecture](docs/security-design.md) y [V2
 
 ```powershell
 py -3 -m venv .venv
-.\\.venv\\Scripts\\Activate.ps1
+.\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 pip install -r requirements-dev.txt
 ```
 
-Si PowerShell bloquea la activación del entorno virtual, se puede ejecutar el intérprete directamente desde `.venv\\Scripts\\python.exe`.
+Si PowerShell bloquea la activación del entorno virtual, se puede ejecutar el intérprete directamente desde `.venv\Scripts\python.exe`.
 
 ## 7. Preparar un backup de prueba
 
 Crear una carpeta con documentos ficticios y generar un ZIP:
 
 ```powershell
-Compress-Archive -Path .\\datos-prueba\\* -DestinationPath .\\backups\\backup.zip
+Compress-Archive -Path .\datos-prueba\* -DestinationPath .\backups\backup.zip
 ```
 
 No utilizar documentos sensibles reales durante las primeras pruebas.
@@ -109,13 +109,13 @@ V1 carga el archivo completo en memoria. Es adecuada únicamente para archivos p
 ### Cifrar
 
 ```powershell
-python backup_crypto.py encrypt .\\backups\\backup.zip .\\encrypted\\backup.zip.enc
+python backup_crypto.py encrypt .\backups\backup.zip .\encrypted\backup.zip.enc
 ```
 
 ### Descifrar
 
 ```powershell
-python backup_crypto.py decrypt .\\encrypted\\backup.zip.enc .\\restored\\backup.zip
+python backup_crypto.py decrypt .\encrypted\backup.zip.enc .\restored\backup.zip
 ```
 
 V1 utiliza AES-256-GCM, PBKDF2-HMAC-SHA256 con 600.000 iteraciones, sal de 16 bytes y nonce de 12 bytes. La contraseña debe tener al menos 12 caracteres.
@@ -127,13 +127,13 @@ V2 procesa el archivo en bloques de 1 MiB por defecto y no carga el archivo comp
 ### Cifrar
 
 ```powershell
-python backup_crypto_stream_cli.py encrypt .\\backups\\backup.zip .\\encrypted\\backup.zip.v2.enc
+python backup_crypto_stream_cli.py encrypt .\backups\backup.zip .\encrypted\backup.zip.v2.enc
 ```
 
 ### Descifrar
 
 ```powershell
-python backup_crypto_stream_cli.py decrypt .\\encrypted\\backup.zip.v2.enc .\\restored\\backup.zip
+python backup_crypto_stream_cli.py decrypt .\encrypted\backup.zip.v2.enc .\restored\backup.zip
 ```
 
 La memoria utilizada por el procesamiento de contenido está acotada por el tamaño del bloque y los buffers de E/S, no por el tamaño total del archivo. No se han publicado todavía benchmarks de memoria, throughput ni latencia; deben medirse antes de realizar afirmaciones cuantitativas de rendimiento.
@@ -145,8 +145,8 @@ La memoria utilizada por el procesamiento de contenido está acotada por el tama
 Comparar los hashes SHA-256 del archivo original y del archivo recuperado:
 
 ```powershell
-Get-FileHash .\\backups\\backup.zip -Algorithm SHA256
-Get-FileHash .\\restored\\backup.zip -Algorithm SHA256
+Get-FileHash .\backups\backup.zip -Algorithm SHA256
+Get-FileHash .\restored\backup.zip -Algorithm SHA256
 ```
 
 Los valores `Hash` deben coincidir.
