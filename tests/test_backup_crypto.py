@@ -1,9 +1,9 @@
 from pathlib import Path
 
-from backup_crypto import _write_new_file, decrypt_file, encrypt_file
+import pytest
 from cryptography.exceptions import InvalidTag
 
-import pytest
+from backup_crypto import _write_new_file, decrypt_file, encrypt_file
 
 
 PASSWORD = "TCC-Seguridad-Backup-2026!"
